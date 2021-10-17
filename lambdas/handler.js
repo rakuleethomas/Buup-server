@@ -8,11 +8,13 @@ const app = express();
 const USERS_TABLE = process.env.USERS_TABLE;
 const JOBPOSTING_TABLE = process.env.JOBPOSTING_TABLE;
 const JOBSEEKER_TABLE = process.env.JOBSEEKER_TABLE;
+const EMPLOYER_TABLE = process.env.EMPLOYER_TABLE;
 const dynamoDbClient = new AWS.DynamoDB.DocumentClient();
 
 app.use(express.json());
 
 app.get("/test", async function (req, res) {
+  console.log("test success");
   res.json({ test: "Success" });
 });
 
@@ -48,6 +50,7 @@ app.post("/addJobPosting", async function (req, res) {
   };
   try {
     await dynamoDbClient.put(params).promise();
+    console.log("data successfully uploaded");
     res.status(200).json({ message: "data successfully uploaded" });
   } catch (error) {
     console.log(error);
@@ -69,6 +72,7 @@ app.get("/getJobPostingByDistance", async function (req, res) {
     const Data = await dynamoDbClient.scan(params).promise();
     if (Data) {
       const Posting = Data.Items;
+      console.log("success");
       res.status(200).json(
           Posting.filter(function (post) {
             var lat = post.latitude;
@@ -79,11 +83,12 @@ app.get("/getJobPostingByDistance", async function (req, res) {
           })
         );
     } else {
-      res.status(404).json({ message: "Could not retreive data" });
+      console.log("Could not retreive data");
+      res.status(400).json({ message: "Could not retreive data" });
     }
   } catch (error) {
     console.log(error);
-    res.status(500).json({ message: "Could not retreive data" });
+    res.status(400).json({ message: "Could not retreive data" });
   }
 });
 
@@ -107,6 +112,27 @@ app.post("/jobSeekerSignUp", async function (req, res) {
     wageMax,
     zipCode
   } = req.body;
+  const checkParams = {
+    TableName: JOBSEEKER_TABLE,
+    KeyConditionExpression: 'loginId = :loginId',
+    ExpressionAttributeValues: {
+      ':loginId': loginId
+    }
+  };
+  try {
+    const Data = await dynamoDbClient.query(checkParams).promise();
+    if (Data.Items.length > 0) {
+      res.status(400).json({ message: "Your account already exists" });
+      return;
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(400).json({
+      message: "Could not sign up",
+      error: error
+    });
+    return;
+  }
   const params = {
     TableName: JOBSEEKER_TABLE,
     Item: {
@@ -131,9 +157,9 @@ app.post("/jobSeekerSignUp", async function (req, res) {
   };
   try {
     await dynamoDbClient.put(params).promise();
-    console.log("data successfully uploaded");
+    console.log("account successfully created");
     res.status(200).json({ 
-      message: "data successfully uploaded",
+      message: "account successfully created",
       data: params
     });
   } catch (error) {
@@ -156,18 +182,114 @@ app.post("/jobSeekerSignIn", async function (req, res) {
   };
   try {
     const Data = await dynamoDbClient.query(params).promise();
-    console.log(loginId, password);
-    console.log(Data.Items[0]);
     if (Data && Data.Items[0].password === password) {
       var userInfo = Data.Items[0];
       userInfo.password = "";
       res.status(200).json({ message: userInfo });
     } else {
-      res.status(404).json({ message: "The info does not match our database" });
+      console.log("The info does not match our database");
+      res.status(400).json({ message: "The info does not match our database" });
     }
   } catch (error) {
     console.log(error);
-    res.status(500).json({
+    res.status(400).json({
+      message: "Could not sign in",
+      error: error
+    });
+  }
+});
+
+app.post("/employerSignUp", async function (req, res) {
+  const {
+    userId,
+    firstName,
+    lastName,
+    email,
+    loginId,
+    password,
+    verified,
+    industry,
+    photoUrl,
+    socialMedia,
+    timestamp,
+    companyInfo
+  } = req.body;
+  const checkParams = {
+    TableName: EMPLOYER_TABLE,
+    KeyConditionExpression: 'loginId = :loginId',
+    ExpressionAttributeValues: {
+      ':loginId': loginId
+    }
+  };
+  try {
+    const Data = await dynamoDbClient.query(checkParams).promise();
+    if (Data.Items.length > 0) {
+      console.log("Your account already exists");
+      res.status(400).json({ message: "Your account already exists" });
+      return;
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(400).json({
+      message: "Could not create employer",
+      error: error
+    });
+  }
+  const params = {
+    TableName: EMPLOYER_TABLE,
+    Item: {
+      userId: userId,
+      firstName: firstName,
+      lastName: lastName,
+      email: email,
+      loginId: loginId,
+      password: password,
+      verified: verified,
+      industry: industry,
+      photoUrl: photoUrl,
+      socialMedia: socialMedia,
+      timestamp: timestamp,
+      companyInfo: companyInfo
+    }
+  };
+  try {
+    await dynamoDbClient.put(params).promise();
+    console.log("account successfully created");
+    res.status(200).json({ 
+      message: "account successfully created",
+      data: params
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(400).json({ 
+        message: "Could not create job seeker",
+        error: error
+      });
+  }
+});
+
+app.post("/employerSignIn", async function (req, res) {
+  const { loginId, password } = req.body;
+  const params = {
+    TableName: EMPLOYER_TABLE,
+    KeyConditionExpression: 'loginId = :loginId',
+    ExpressionAttributeValues: {
+      ':loginId': loginId
+    }
+  };
+  try {
+    const Data = await dynamoDbClient.query(params).promise();
+    if (Data && Data.Items[0].password === password) {
+      var userInfo = Data.Items[0];
+      userInfo.password = "";
+      res.status(200).json({ message: userInfo });
+    } else {
+      console.log("The info does not match our database");
+      res.status(400).json({ message: "The info does not match our database" });
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(400).json({
       message: "Could not sign in",
       error: error
     });
