@@ -111,7 +111,8 @@ app.post("/jobSeekerSignUp", async function (req, res) {
     timestamp,
     wageMin,
     wageMax,
-    zipCode
+    zipCode,
+    availability
   } = req.body;
   const checkParams = {
     TableName: JOBSEEKER_TABLE,
@@ -153,7 +154,8 @@ app.post("/jobSeekerSignUp", async function (req, res) {
       timestamp: timestamp,
       wageMin: wageMin,
       wageMax: wageMax,
-      zipCode: zipCode
+      zipCode: zipCode,
+      availability: availability
     }
   };
   try {
