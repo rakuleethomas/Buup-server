@@ -336,13 +336,22 @@ app.post("/addIndustry", async function (req, res) {
 app.get("/getIndustry", async function (req, res) {
   const params = {
     TableName: INDUSTRY_TABLE,
-    IndexName: "PostedBy-Index",
   };
   try {
-    await dynamoDbClient.scan(params).promise();
-    res.status(200).json({
-      data: params
-    });
+    const Data = await dynamoDbClient.scan(params).promise();
+    if (Data) {
+      const Posting = Data.Items;
+      console.log("success");
+      res.status(200).json({
+        data: Data.Items.sort( function( a, b ) {
+          return a.industryName < b.industryName ? -1 : a.industryName > b.industryName ? 1 : 0;
+        })
+      });
+    } else {
+      console.log("Could not retreive industry");
+      res.status(400).json({ message: "Could not retreive industry" });
+    }
+
   } catch (error) {
     console.log(error);
     res.status(400).json({ message: "Could not retrieve industry" });
