@@ -9,6 +9,7 @@ const USERS_TABLE = process.env.USERS_TABLE;
 const JOBPOSTING_TABLE = process.env.JOBPOSTING_TABLE;
 const JOBSEEKER_TABLE = process.env.JOBSEEKER_TABLE;
 const EMPLOYER_TABLE = process.env.EMPLOYER_TABLE;
+const INDUSTRY_TABLE = process.env.INDUSTRY_TABLE;
 const dynamoDbClient = new AWS.DynamoDB.DocumentClient();
 
 app.use(express.json());
@@ -83,12 +84,12 @@ app.get("/getJobPostingByDistance", async function (req, res) {
           })
         );
     } else {
-      console.log("Could not retreive data");
-      res.status(400).json({ message: "Could not retreive data" });
+      console.log("Could not retrieve data");
+      res.status(400).json({ message: "Could not retrieve data" });
     }
   } catch (error) {
     console.log(error);
-    res.status(400).json({ message: "Could not retreive data" });
+    res.status(400).json({ message: "Could not retrieve data" });
   }
 });
 
@@ -293,6 +294,56 @@ app.post("/employerSignIn", async function (req, res) {
       message: "Could not sign in",
       error: error
     });
+  }
+});
+
+app.post("/addIndustry", async function (req, res) {
+  const {
+    industryCode,
+    industryName
+  } = req.body;
+  const params = {
+    TableName: INDUSTRY_TABLE,
+    Item: {
+      industryCode: industryCode,
+      industryName: industryName
+    },
+    KeyConditionExpression: 'industryCode = :industryCode',
+    ExpressionAttributeValues: {
+      ':industryCode': industryCode
+    }
+  };
+  try {
+    const Data = await dynamoDbClient.query(params).promise();
+    if (Data.Items.length > 1) {
+      console.log("Industry already exists");
+      res.status(400).json({ message: "Industry already exists" });
+      return;
+    }
+    console.log("Industry successfully added");
+    res.status(200).json({ message: "Industry successfully added" });
+  } catch (error) {
+    console.log(error);
+    res.status(400).json({
+      message: "Could not create industry",
+      error: error
+    });
+  }
+});
+
+app.get("/getIndustry", async function (req, res) {
+  const params = {
+    TableName: INDUSTRY_TABLE,
+    IndexName: "PostedBy-Index",
+  };
+  try {
+    await dynamoDbClient.scan(params).promise();
+    res.status(200).json({
+      data: params
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(400).json({ message: "Could not retrieve industry" });
   }
 });
 

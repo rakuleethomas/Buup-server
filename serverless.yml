@@ -13,6 +13,7 @@ custom:
   jobPosting: 'job-posting-${self:provider.stage}'
   jobSeeker: 'jobseeker-${self:provider.stage}'
   employer: 'employer-${self:provider.stage}'
+  industry: 'industry-${self:provider.stage}'
 
 provider:
   name: aws
@@ -35,11 +36,13 @@ provider:
             - Fn::GetAtt: [ JobPostingTable, Arn ]
             - Fn::GetAtt: [ JobSeekerTable, Arn ]
             - Fn::GetAtt: [ EmployerTable, Arn ]
+            - Fn::GetAtt: [ IndustryTable, Arn ]
   environment:
     USERS_TABLE: ${self:custom.tableName}
     JOBPOSTING_TABLE: ${self:custom.jobPosting}
     JOBSEEKER_TABLE: ${self:custom.jobSeeker}
     EMPLOYER_TABLE: ${self:custom.employer}
+    INDUSTRY_TABLE: ${self:custom.industry}
 
 functions:
   api:
@@ -106,3 +109,16 @@ resources:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
         TableName: ${self:custom.employer}
+    IndustryTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: industryCode
+            AttributeType: S
+        KeySchema:
+          - AttributeName: industryCode
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${self:custom.industry}
