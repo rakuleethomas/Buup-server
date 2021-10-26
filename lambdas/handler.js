@@ -21,9 +21,11 @@ app.get("/test", async function (req, res) {
 app.post("/addJobPosting", async function (req, res) {
   const {
     postId,
+    employer,
     jobTitle,
     companyName,
     logo,
+    industry,
     payRateLow,
     payRateHigh,
     city,
@@ -37,6 +39,54 @@ app.post("/addJobPosting", async function (req, res) {
     TableName: JOBPOSTING_TABLE,
     Item: {
       postId: postId,
+      employer: employer,
+      jobTitle: jobTitle,
+      companyName: companyName,
+      logo: logo,
+      industry: industry,
+      payRateLow: payRateLow,
+      payRateHigh: payRateHigh,
+      city: city,
+      liked: liked,
+      longitude: longitude,
+      latitude: latitude
+    }
+  };
+  try {
+    await dynamoDbClient.put(params).promise();
+    console.log("data successfully uploaded");
+    res.status(200).json({ message: "post successfully created" });
+  } catch (error) {
+    console.log(error);
+    res.status(400).json({ 
+        message: "Could not create post",
+        error: error
+      });
+  }
+});
+
+app.post("/updateJobPosting", async function (req, res) {
+  const {
+    postId,
+    employer,
+    jobTitle,
+    companyName,
+    logo,
+    payRateLow,
+    payRateHigh,
+    city,
+    liked,
+    longitude,
+    latitude
+  } = req.body;
+  const params = {
+    TableName: JOBPOSTING_TABLE,
+    Key: {
+      postId: postId
+    },
+    Item: {
+      postId: postId,
+      employer: employer,
       jobTitle: jobTitle,
       companyName: companyName,
       logo: logo,
@@ -50,12 +100,35 @@ app.post("/addJobPosting", async function (req, res) {
   };
   try {
     await dynamoDbClient.put(params).promise();
-    console.log("data successfully uploaded");
-    res.status(200).json({ message: "data successfully uploaded" });
+    console.log("data successfully updated");
+    res.status(200).json({ message: "post successfully updated" });
   } catch (error) {
     console.log(error);
     res.status(400).json({ 
-        message: "Could not create post",
+        message: "Could not update post",
+        error: error
+      });
+  }
+});
+
+app.post("/deleteJobPosting", async function (req, res) {
+  const {
+    postId
+  } = req.body;
+  const params = {
+    TableName: JOBPOSTING_TABLE,
+    Key: {
+      postId: postId
+    }
+  };
+  try {
+    await dynamoDbClient.delete(params).promise();
+    console.log("data successfully deleted");
+    res.status(200).json({ message: "post successfully deleted" });
+  } catch (error) {
+    console.log(error);
+    res.status(400).json({ 
+        message: "Could not delete post",
         error: error
       });
   }
@@ -63,8 +136,6 @@ app.post("/addJobPosting", async function (req, res) {
 
 app.get("/getJobPostingByDistance", async function (req, res) {
   const { latitude, longitude, distance } = req.query;
-  // calculate the dist
-  // return if it's within the dist
   const params = {
     TableName: JOBPOSTING_TABLE
   };
@@ -80,6 +151,36 @@ app.get("/getJobPostingByDistance", async function (req, res) {
             var userPos = { latitude, longitude };
             var storePos = { lat, lon };
             return haversine(userPos, storePos) <= distance * 1609.34;
+          })
+        );
+    } else {
+      console.log("Could not retreive data");
+      res.status(400).json({ message: "Could not retreive data" });
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(400).json({ message: "Could not retreive data" });
+  }
+});
+
+app.get("/getJobSeekerByIndustry", async function (req, res) {
+  const { latitude, longitude, distance, industry } = req.query;
+  const params = {
+    TableName: JOBSEEKER_TABLE
+  };
+  try {
+    const Data = await dynamoDbClient.scan(params).promise();
+    if (Data) {
+      const Seeker = Data.Items;
+      console.log("success");
+      res.status(200).json(
+          Seeker.filter(function (seeker) {
+            var lat = seeker.latitude;
+            var lon = seeker.longitude;
+            var seekerPos = { lat, lon };
+            var storePos = { latitude, longitude };
+            return haversine(seekerPos, storePos) <= distance * 1609.34 &&
+                   seeker.industry.some((sIndustry) => sIndustry.toLowerCase() === industry.toLowerCase());
           })
         );
     } else {
@@ -111,6 +212,8 @@ app.post("/jobSeekerSignUp", async function (req, res) {
     wageMin,
     wageMax,
     zipCode,
+    latitude,
+    longitude,
     availability
   } = req.body;
   const checkParams = {
@@ -144,7 +247,7 @@ app.post("/jobSeekerSignUp", async function (req, res) {
       loginId: loginId,
       password: password,
       verified: verified,
-      insdustry: industry,
+      industry: industry,
       badge: badge,
       photoUrl: photoUrl,
       buupCount: buupCount,
@@ -154,6 +257,8 @@ app.post("/jobSeekerSignUp", async function (req, res) {
       wageMin: wageMin,
       wageMax: wageMax,
       zipCode: zipCode,
+      latitude: latitude,
+      longitude: longitude,
       availability: availability
     }
   };
@@ -298,11 +403,37 @@ app.post("/employerSignIn", async function (req, res) {
   }
 });
 
+app.post("/getCurrentJobPosting", async function (req, res) {
+  const { loginId } = req.body;
+  const params = {
+    TableName: JOBPOSTING_TABLE
+  };
+  try {
+    const Data = await dynamoDbClient.scan(params).promise();
+    if (Data && Data.Items.length > 0) {
+      res.status(200).json(
+        {
+          message: "success",
+          jobPosting: Data.Items.filter((item) => { return item.employer === loginId })
+        }
+      )
+    } else {
+      console.log("No job postings");
+      res.status(200).json({ message: "No job postings" });
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(400).json({
+      message: "Could not find job postings",
+      error: error
+    });
+  }
+});
+
 app.use((req, res, next) => {
   return res.status(404).json({
     message: "Not Found",
   });
 });
-
 
 module.exports.handler = serverless(app);
