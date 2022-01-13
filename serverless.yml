@@ -9,8 +9,7 @@ plugins:
   - serverless-offline
 
 custom:
-  tableName: 'users-table-${self:provider.stage}'
-  jobPosting: 'job-posting-${self:provider.stage}'
+  post: 'post-${self:provider.stage}'
   jobSeeker: 'jobseeker-${self:provider.stage}'
   employer: 'employer-${self:provider.stage}'
 
@@ -18,7 +17,7 @@ provider:
   name: aws
   runtime: nodejs12.x
   lambdaHashingVersion: '20201221'
-  stage: dev-2
+  stage: dev-3
   iam:
     role:
       statements:
@@ -31,13 +30,11 @@ provider:
             - dynamodb:UpdateItem
             - dynamodb:DeleteItem
           Resource:
-            - Fn::GetAtt: [ UsersTable, Arn ]
-            - Fn::GetAtt: [ JobPostingTable, Arn ]
             - Fn::GetAtt: [ JobSeekerTable, Arn ]
             - Fn::GetAtt: [ EmployerTable, Arn ]
+            - Fn::GetAtt: [ PostTable, Arn ]
   environment:
-    USERS_TABLE: ${self:custom.tableName}
-    JOBPOSTING_TABLE: ${self:custom.jobPosting}
+    POST_TABLE: ${self:custom.post}
     JOBSEEKER_TABLE: ${self:custom.jobSeeker}
     EMPLOYER_TABLE: ${self:custom.employer}
 
@@ -54,40 +51,14 @@ functions:
 
 resources:
   Resources:
-    UsersTable:
-      Type: AWS::DynamoDB::Table
-      Properties:
-        AttributeDefinitions:
-          - AttributeName: userId
-            AttributeType: S
-        KeySchema:
-          - AttributeName: userId
-            KeyType: HASH
-        ProvisionedThroughput:
-          ReadCapacityUnits: 1
-          WriteCapacityUnits: 1
-        TableName: ${self:custom.tableName}
-    JobPostingTable:
-      Type: AWS::DynamoDB::Table
-      Properties:
-        AttributeDefinitions:
-          - AttributeName: postId
-            AttributeType: S
-        KeySchema:
-          - AttributeName: postId
-            KeyType: HASH
-        ProvisionedThroughput:
-          ReadCapacityUnits: 1
-          WriteCapacityUnits: 1
-        TableName: ${self:custom.jobPosting}
     JobSeekerTable:
       Type: AWS::DynamoDB::Table
       Properties:
         AttributeDefinitions:
-          - AttributeName: loginId
+          - AttributeName: jobseekerId
             AttributeType: S
         KeySchema:
-          - AttributeName: loginId
+          - AttributeName: jobseekerId
             KeyType: HASH
         ProvisionedThroughput:
           ReadCapacityUnits: 1
@@ -97,12 +68,25 @@ resources:
       Type: AWS::DynamoDB::Table
       Properties:
         AttributeDefinitions:
-          - AttributeName: loginId
+          - AttributeName: employerId
             AttributeType: S
         KeySchema:
-          - AttributeName: loginId
+          - AttributeName: employerId
             KeyType: HASH
         ProvisionedThroughput:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
         TableName: ${self:custom.employer}
+    PostTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: postId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: postId
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${self:custom.post}

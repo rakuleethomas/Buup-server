@@ -5,8 +5,7 @@ const haversine = require('haversine-distance');
 
 const app = express();
 
-const USERS_TABLE = process.env.USERS_TABLE;
-const JOBPOSTING_TABLE = process.env.JOBPOSTING_TABLE;
+const POST_TABLE = process.env.POST_TABLE;
 const JOBSEEKER_TABLE = process.env.JOBSEEKER_TABLE;
 const EMPLOYER_TABLE = process.env.EMPLOYER_TABLE;
 const dynamoDbClient = new AWS.DynamoDB.DocumentClient();
@@ -18,13 +17,13 @@ app.get("/test", async function (req, res) {
   res.json({ test: "Success" });
 });
 
-app.post("/addJobPosting", async function (req, res) {
+app.post("/addPost", async function (req, res) {
   const {
     postId,
-    employer,
+    employerId,
     jobTitle,
     companyName,
-    logo,
+    logoUrl,
     industry,
     payRateLow,
     payRateHigh,
@@ -35,11 +34,14 @@ app.post("/addJobPosting", async function (req, res) {
   } = req.body;
   // data validation
   // if fail, `res.status(400).json({ error: "error message" });`
+  const currTime = Date.now();
   const params = {
-    TableName: JOBPOSTING_TABLE,
+    TableName: POST_TABLE,
     Item: {
       postId: postId,
-      employer: employer,
+      createdAt: currTime,
+      modifiedAt: currTime,
+      employerId: employerId,
       jobTitle: jobTitle,
       companyName: companyName,
       logo: logo,
@@ -49,7 +51,8 @@ app.post("/addJobPosting", async function (req, res) {
       city: city,
       liked: liked,
       longitude: longitude,
-      latitude: latitude
+      latitude: latitude,
+      application: null
     }
   };
   try {
@@ -318,14 +321,13 @@ app.post("/employerSignUp", async function (req, res) {
     industry,
     photoUrl,
     socialMedia,
-    timestamp,
     companyInfo
   } = req.body;
   const checkParams = {
     TableName: EMPLOYER_TABLE,
-    KeyConditionExpression: 'loginId = :loginId',
+    KeyConditionExpression: 'userId = :userId',
     ExpressionAttributeValues: {
-      ':loginId': loginId
+      ':userId': userId
     }
   };
   try {
@@ -338,14 +340,17 @@ app.post("/employerSignUp", async function (req, res) {
   } catch (error) {
     console.log(error);
     res.status(400).json({
-      message: "Could not create employer",
+      message: "Could not create employer account",
       error: error
     });
   }
+  let currTime = new Date();
   const params = {
     TableName: EMPLOYER_TABLE,
     Item: {
       userId: userId,
+      createdAt: currTime,
+      modifiedAt: currTime,
       firstName: firstName,
       lastName: lastName,
       email: email,
