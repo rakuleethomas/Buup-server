@@ -309,6 +309,36 @@ app.post("/jobSeekerSignIn", async function (req, res) {
   }
 });
 
+app.post("/emailExists", async function (req, res) {
+  const { loginId, isEmployer } = req.body;
+
+  const param = {
+    TableName: isEmployer ? EMPLOYER_TABLE : JOBSEEKER_TABLE,
+    KeyConditionExpression: 'loginId = :loginId',
+    ExpressionAttributeValues: {
+      ':loginId': loginId
+    }
+  }
+  console.log(param.TableName);
+  try {
+    const Data = await dynamoDbClient.query(param).promise();
+    if (Data.Items.length == 0) {
+      console.log("Email does not exists");
+      res.status(200).json({ message: "Email does not exists" });
+    }
+    else {
+      res.status(400).json({ message: "Email already exists" })
+    }
+  }
+  catch (error) {
+    console.log(error);
+    res.status(400).json({
+      message: "Could not check email",
+      error: error
+    });
+  }
+});
+
 app.post("/employerSignUp", async function (req, res) {
   const {
     userId,
