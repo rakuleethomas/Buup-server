@@ -1,7 +1,7 @@
 const AWS = require("aws-sdk");
 const express = require("express");
 const serverless = require("serverless-http");
-const haversine = require('haversine-distance');
+const haversine = require("haversine-distance");
 
 const app = express();
 
@@ -32,9 +32,10 @@ app.post("/addPost", async function (req, res) {
     longitude,
     latitude
   } = req.body;
-  // data validation
-  // if fail, `res.status(400).json({ error: "error message" });`
+
   const currTime = Date.now();
+  //const postId = some unique hash
+
   const params = {
     TableName: POST_TABLE,
     Item: {
@@ -162,7 +163,10 @@ app.get("/getJobPostingByDistance", async function (req, res) {
     }
   } catch (error) {
     console.log(error);
-    res.status(400).json({ message: "Could not retreive data" });
+    res.status(400).json({
+        message: "Could not retreive data",
+        error: error
+    });
   }
 });
 
@@ -192,17 +196,50 @@ app.get("/getJobSeekerByIndustry", async function (req, res) {
     }
   } catch (error) {
     console.log(error);
-    res.status(400).json({ message: "Could not retreive data" });
+    res.status(400).json({
+        message: "Could not retreive data",
+        error: error
+    });
+  }
+});
+
+app.post("/emailExists", async function (req, res) {
+  const { email, isEmployer } = req.body;
+
+  const param = {
+    TableName: isEmployer ? EMPLOYER_TABLE : JOBSEEKER_TABLE,
+    KeyConditionExpression: isEmployer ? 'employerId = :email' : 'jobseekerId = :email',
+    ExpressionAttributeValues: {
+      ':email': email
+    }
+  }
+  console.log(param.KeyConditionExpression);
+  try {
+    const Data = await dynamoDbClient.query(param).promise();
+    if (Data.Items.length == 0) {
+      console.log("Email does not exists");
+      res.status(200).json({ message: "Email does not exists" });
+    }
+    else {
+      res.status(400).json({ message: "Email already exists" })
+    }
+  }
+  catch (error) {
+    console.log(error);
+    res.status(400).json({
+      message: "Could not check email",
+      error: error,
+      attribute: param.ExpressionAttributeValues
+    });
   }
 });
 
 app.post("/jobSeekerSignUp", async function (req, res) {
   const {
-    userId,
+    jobseekerId,
     firstName,
     lastName,
     email,
-    loginId,
     password,
     verified,
     industry,
@@ -221,9 +258,9 @@ app.post("/jobSeekerSignUp", async function (req, res) {
   } = req.body;
   const checkParams = {
     TableName: JOBSEEKER_TABLE,
-    KeyConditionExpression: 'loginId = :loginId',
+    KeyConditionExpression: 'jobseekerId = :jobseekerId',
     ExpressionAttributeValues: {
-      ':loginId': loginId
+      ':jobseekerId': jobseekerId
     }
   };
   try {
@@ -243,11 +280,10 @@ app.post("/jobSeekerSignUp", async function (req, res) {
   const params = {
     TableName: JOBSEEKER_TABLE,
     Item: {
-      userId: userId,
+      jobseekerId: jobseekerId,
       firstName: firstName,
       lastName: lastName,
       email: email,
-      loginId: loginId,
       password: password,
       verified: verified,
       industry: industry,
@@ -282,12 +318,12 @@ app.post("/jobSeekerSignUp", async function (req, res) {
 });
 
 app.post("/jobSeekerSignIn", async function (req, res) {
-  const { loginId, password } = req.body;
+  const { jobseekerId, password } = req.body;
   const params = {
     TableName: JOBSEEKER_TABLE,
-    KeyConditionExpression: 'loginId = :loginId',
+    KeyConditionExpression: 'jobseekerId = :jobseekerId',
     ExpressionAttributeValues: {
-      ':loginId': loginId
+      ':jobseekerId': jobseekerId
     }
   };
   try {
@@ -311,23 +347,23 @@ app.post("/jobSeekerSignIn", async function (req, res) {
 
 app.post("/employerSignUp", async function (req, res) {
   const {
-    userId,
+    employerId,
     firstName,
     lastName,
     email,
-    loginId,
     password,
     verified,
     industry,
     photoUrl,
     socialMedia,
+    timestamp,
     companyInfo
   } = req.body;
   const checkParams = {
     TableName: EMPLOYER_TABLE,
-    KeyConditionExpression: 'userId = :userId',
+    KeyConditionExpression: 'employerId = :employerId',
     ExpressionAttributeValues: {
-      ':userId': userId
+      ':employerId': employerId
     }
   };
   try {
@@ -348,13 +384,12 @@ app.post("/employerSignUp", async function (req, res) {
   const params = {
     TableName: EMPLOYER_TABLE,
     Item: {
-      userId: userId,
+      employerId: employerId,
       createdAt: currTime,
       modifiedAt: currTime,
       firstName: firstName,
       lastName: lastName,
       email: email,
-      loginId: loginId,
       password: password,
       verified: verified,
       industry: industry,
@@ -381,12 +416,12 @@ app.post("/employerSignUp", async function (req, res) {
 });
 
 app.post("/employerSignIn", async function (req, res) {
-  const { loginId, password } = req.body;
+  const { employerId, password } = req.body;
   const params = {
     TableName: EMPLOYER_TABLE,
-    KeyConditionExpression: 'loginId = :loginId',
+    KeyConditionExpression: 'employerId = :employerId',
     ExpressionAttributeValues: {
-      ':loginId': loginId
+      ':employerId': employerId
     }
   };
   try {
@@ -409,7 +444,7 @@ app.post("/employerSignIn", async function (req, res) {
 });
 
 app.post("/getCurrentJobPosting", async function (req, res) {
-  const { loginId } = req.body;
+  const { employerId } = req.body;
   const params = {
     TableName: JOBPOSTING_TABLE
   };
@@ -419,7 +454,7 @@ app.post("/getCurrentJobPosting", async function (req, res) {
       res.status(200).json(
         {
           message: "success",
-          jobPosting: Data.Items.filter((item) => { return item.employer === loginId })
+          jobPosting: Data.Items.filter((item) => { return item.employer === employerId })
         }
       )
     } else {
